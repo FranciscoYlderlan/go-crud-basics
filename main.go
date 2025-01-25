@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
 	"log"
@@ -18,17 +19,37 @@ type ContactStore struct {
 	Contacts map[int]Contact
 }
 
+func (c *ContactStore) Create(w http.ResponseWriter, r *http.Request) {
+	var newContact Contact
+
+	err := json.NewDecoder(r.Body).Decode(&newContact)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	id := len(c.Contacts) + 1
+
+	newContact.Id = id
+
+	c.Contacts[id] = newContact
+
+	w.Header().Set("Context-Type", "application/json")
+
+	json.NewEncoder(w).Encode(newContact)
+
+	w.WriteHeader(http.StatusCreated)
+
+}
+
 func main() {
 
-	// helloHandler := func(w http.ResponseWriter, req *http.Request) {
-	// 	io.WriteString(w, "Hello, world!\n")
-	// }
-
-	// http.HandleFunc("/hello", helloHandler)
+	// service := &ContactStore{Contacts: make(map[int]Contact)}
 
 	mux := http.NewServeMux()
 
-	http.HandleFunc("/bar", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/contacts", func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
 	})
 
