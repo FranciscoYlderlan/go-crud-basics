@@ -15,7 +15,7 @@ type Contact struct {
 }
 
 type ContactStore struct {
-	Contacts []Contact
+	Contacts map[int]Contact
 }
 
 func main() {
