@@ -1,10 +1,22 @@
 package main
 
 import (
-	"io"
+	"fmt"
+	"html"
 	"log"
 	"net/http"
 )
+
+type Contact struct {
+	Id    int    `json:"id"`
+	Name  string `json:"name"`
+	Email string `json:"email"`
+	Phone string `json:"phone"`
+}
+
+type ContactStore struct {
+	Contacts []Contact
+}
 
 func main() {
 
