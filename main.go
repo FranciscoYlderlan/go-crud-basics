@@ -18,6 +18,18 @@ type Contact struct {
 type ContactStore struct {
 	Contacts map[int]Contact
 }
+func (c *ContactStore) List(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	var contacts []Contact
+
+	for _, ct := range c.Contacts {
+		contacts = append(contacts, ct)
+	}
+
+	json.NewEncoder(w).Encode(contacts)
+
+}
+}
 
 func (c *ContactStore) Create(w http.ResponseWriter, r *http.Request) {
 	var newContact Contact
