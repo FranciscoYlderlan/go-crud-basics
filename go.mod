@@ -1,3 +1,3 @@
-module github.com/FranciscoYlderlan/go-crud-basics
+module go-crud-basics
 
 go 1.23.5
