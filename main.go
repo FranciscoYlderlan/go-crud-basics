@@ -62,6 +62,9 @@ func (c *ContactStore) Create(w http.ResponseWriter, r *http.Request) {
 	log.Println("Contact created:", newContact)
 
 }
+func handlePostContact(w http.ResponseWriter, r *http.Request, service *ContactStore) {
+	service.Create(w, r)
+}
 
 func main() {
 
