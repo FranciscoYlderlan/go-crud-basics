@@ -43,9 +43,10 @@ func (store *ContactStore) FindContactById(w http.ResponseWriter, r *http.Reques
 func (store *ContactStore) CreateContact(w http.ResponseWriter, r *http.Request) {
 	var newContact Contact
 
-	if err := json.NewDecoder(r.Body).Decode(&newContact); err != nil {
-		log.Println("Error decoding JSON:", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	isInvalidJSON := json.NewDecoder(r.Body).Decode(&newContact) != nil
+	if isInvalidJSON {
+		log.Println("Error decoding JSON")
+		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
 		return
 	}
 
@@ -55,9 +56,10 @@ func (store *ContactStore) CreateContact(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 
-	if err := json.NewEncoder(w).Encode(newContact); err != nil {
-		log.Println("Error encoding JSON:", err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	isEncodingError := json.NewEncoder(w).Encode(newContact) != nil
+	if isEncodingError {
+		log.Println("Error encoding JSON")
+		http.Error(w, "Error processing the request", http.StatusInternalServerError)
 	}
 }
 
@@ -65,13 +67,15 @@ func (store *ContactStore) UpdateContact(w http.ResponseWriter, r *http.Request,
 	w.Header().Set("Content-Type", "application/json")
 	var updatedContact Contact
 
-	if err := json.NewDecoder(r.Body).Decode(&updatedContact); err != nil {
-		log.Println("Error decoding JSON:", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+	isInvalidJSON := json.NewDecoder(r.Body).Decode(&updatedContact) != nil
+	if isInvalidJSON {
+		log.Println("Error decoding JSON")
+		http.Error(w, "Invalid JSON format", http.StatusBadRequest)
 		return
 	}
 
-	if _, exists := store.Contacts[contactId]; exists {
+	contactExists := store.Contacts[contactId] != (Contact{})
+	if contactExists {
 		updatedContact.Id = contactId
 		store.Contacts[contactId] = updatedContact
 	} else {
@@ -82,7 +86,8 @@ func (store *ContactStore) UpdateContact(w http.ResponseWriter, r *http.Request,
 func (store *ContactStore) DeleteContact(w http.ResponseWriter, r *http.Request, contactId int) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if _, exists := store.Contacts[contactId]; exists {
+	contactExists := store.Contacts[contactId] != (Contact{})
+	if contactExists {
 		delete(store.Contacts, contactId)
 		w.WriteHeader(http.StatusOK)
 	} else {
@@ -93,8 +98,9 @@ func (store *ContactStore) DeleteContact(w http.ResponseWriter, r *http.Request,
 func handleGetRequest(w http.ResponseWriter, r *http.Request, store *ContactStore) {
 	queryParams := r.URL.Query()
 
-	if idParam := queryParams.Get("id"); idParam != "" {
-		contactId, _ := strconv.Atoi(idParam)
+	hasContactID := queryParams.Get("id") != ""
+	if hasContactID {
+		contactId, _ := strconv.Atoi(queryParams.Get("id"))
 		store.FindContactById(w, r, contactId)
 	} else {
 		store.ListContacts(w, r)
@@ -108,8 +114,9 @@ func handlePostRequest(w http.ResponseWriter, r *http.Request, store *ContactSto
 func handlePutRequest(w http.ResponseWriter, r *http.Request, store *ContactStore) {
 	queryParams := r.URL.Query()
 
-	if idParam := queryParams.Get("id"); idParam != "" {
-		contactId, _ := strconv.Atoi(idParam)
+	hasContactID := queryParams.Get("id") != ""
+	if hasContactID {
+		contactId, _ := strconv.Atoi(queryParams.Get("id"))
 		store.UpdateContact(w, r, contactId)
 	} else {
 		http.Error(w, "Contact ID is required", http.StatusBadRequest)
@@ -119,8 +126,9 @@ func handlePutRequest(w http.ResponseWriter, r *http.Request, store *ContactStor
 func handleDeleteRequest(w http.ResponseWriter, r *http.Request, store *ContactStore) {
 	queryParams := r.URL.Query()
 
-	if idParam := queryParams.Get("id"); idParam != "" {
-		contactId, _ := strconv.Atoi(idParam)
+	hasContactID := queryParams.Get("id") != ""
+	if hasContactID {
+		contactId, _ := strconv.Atoi(queryParams.Get("id"))
 		store.DeleteContact(w, r, contactId)
 	} else {
 		http.Error(w, "Contact ID is required", http.StatusBadRequest)
