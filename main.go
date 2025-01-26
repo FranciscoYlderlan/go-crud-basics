@@ -73,24 +73,36 @@ func (c *ContactStore) Create(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func (c *ContactStore) Delete(w http.ResponseWriter, r *http.Request, id int) {
+func (c *ContactStore) Update(w http.ResponseWriter, r *http.Request, id int) {
+
 	w.Header().Set("Content-Type", "application/json")
 
+	var contactUpdated Contact
+
+	err := json.NewDecoder(r.Body).Decode(&contactUpdated)
+
+	if err != nil {
+		log.Println("Error decoding JSON:", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
 	if _, ok := c.Contacts[id]; ok {
-		delete(c.Contacts, id)
-		w.WriteHeader(http.StatusOK)
+		contactUpdated.Id = id
+		c.Contacts[id] = contactUpdated
+
 	} else {
 		http.Error(w, "Contact not found", http.StatusNotFound)
 	}
 
 }
 
-func handleDeleteContact(w http.ResponseWriter, r *http.Request, service *ContactStore) {
-	q := r.URL.Query()
+func (c *ContactStore) Delete(w http.ResponseWriter, r *http.Request, id int) {
+	w.Header().Set("Content-Type", "application/json")
 
-	if q.Get("id") != "" {
-		id, _ := strconv.Atoi(q.Get("id"))
-		service.Delete(w, r, id)
+	if _, ok := c.Contacts[id]; ok {
+		delete(c.Contacts, id)
+		w.WriteHeader(http.StatusOK)
 	} else {
 		http.Error(w, "Contact not found", http.StatusNotFound)
 	}
@@ -113,6 +125,29 @@ func handlePostContact(w http.ResponseWriter, r *http.Request, service *ContactS
 	service.Create(w, r)
 }
 
+func handlePutContact(w http.ResponseWriter, r *http.Request, service *ContactStore) {
+	q := r.URL.Query()
+
+	if q.Get("id") != "" {
+		id, _ := strconv.Atoi(q.Get("id"))
+		service.Update(w, r, id)
+	} else {
+		http.Error(w, "Contact not found", http.StatusNotFound)
+	}
+}
+
+func handleDeleteContact(w http.ResponseWriter, r *http.Request, service *ContactStore) {
+	q := r.URL.Query()
+
+	if q.Get("id") != "" {
+		id, _ := strconv.Atoi(q.Get("id"))
+		service.Delete(w, r, id)
+	} else {
+		http.Error(w, "Contact not found", http.StatusNotFound)
+	}
+
+}
+
 func main() {
 
 	service := &ContactStore{Contacts: make(map[int]Contact)}
@@ -126,6 +161,8 @@ func main() {
 			handleGetContacts(w, r, service)
 		case http.MethodPost:
 			handlePostContact(w, r, service)
+		case http.MethodPut:
+			handlePutContact(w, r, service)
 		case http.MethodDelete:
 			handleDeleteContact(w, r, service)
 		default:
