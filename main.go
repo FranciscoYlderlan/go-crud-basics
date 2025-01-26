@@ -18,160 +18,134 @@ type ContactStore struct {
 	Contacts map[int]Contact
 }
 
-func (c *ContactStore) List(w http.ResponseWriter, r *http.Request) {
+func (store *ContactStore) ListContacts(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	var contacts []Contact
+	var contactList []Contact
 
-	for _, ct := range c.Contacts {
-		contacts = append(contacts, ct)
+	for _, contact := range store.Contacts {
+		contactList = append(contactList, contact)
 	}
 
-	json.NewEncoder(w).Encode(contacts)
-
+	json.NewEncoder(w).Encode(contactList)
 }
 
-func (c *ContactStore) Find(w http.ResponseWriter, r *http.Request, id int) {
+func (store *ContactStore) FindContactById(w http.ResponseWriter, r *http.Request, contactId int) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if contact, ok := c.Contacts[id]; ok {
+	contact, exists := store.Contacts[contactId]
+	if exists {
 		json.NewEncoder(w).Encode(contact)
 	} else {
 		http.Error(w, "Contact not found", http.StatusNotFound)
 	}
-
 }
 
-func (c *ContactStore) Create(w http.ResponseWriter, r *http.Request) {
+func (store *ContactStore) CreateContact(w http.ResponseWriter, r *http.Request) {
 	var newContact Contact
 
-	err := json.NewDecoder(r.Body).Decode(&newContact)
-
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&newContact); err != nil {
 		log.Println("Error decoding JSON:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	id := len(c.Contacts) + 1
-
-	newContact.Id = id
-
-	c.Contacts[id] = newContact
+	newContact.Id = len(store.Contacts) + 1
+	store.Contacts[newContact.Id] = newContact
 
 	w.Header().Set("Content-Type", "application/json")
-
 	w.WriteHeader(http.StatusCreated)
 
-	err = json.NewEncoder(w).Encode(newContact)
-	if err != nil {
+	if err := json.NewEncoder(w).Encode(newContact); err != nil {
 		log.Println("Error encoding JSON:", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
 	}
-
-	log.Println("Contact created:", newContact)
-
 }
 
-func (c *ContactStore) Update(w http.ResponseWriter, r *http.Request, id int) {
-
+func (store *ContactStore) UpdateContact(w http.ResponseWriter, r *http.Request, contactId int) {
 	w.Header().Set("Content-Type", "application/json")
+	var updatedContact Contact
 
-	var contactUpdated Contact
-
-	err := json.NewDecoder(r.Body).Decode(&contactUpdated)
-
-	if err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&updatedContact); err != nil {
 		log.Println("Error decoding JSON:", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	if _, ok := c.Contacts[id]; ok {
-		contactUpdated.Id = id
-		c.Contacts[id] = contactUpdated
-
+	if _, exists := store.Contacts[contactId]; exists {
+		updatedContact.Id = contactId
+		store.Contacts[contactId] = updatedContact
 	} else {
 		http.Error(w, "Contact not found", http.StatusNotFound)
 	}
-
 }
 
-func (c *ContactStore) Delete(w http.ResponseWriter, r *http.Request, id int) {
+func (store *ContactStore) DeleteContact(w http.ResponseWriter, r *http.Request, contactId int) {
 	w.Header().Set("Content-Type", "application/json")
 
-	if _, ok := c.Contacts[id]; ok {
-		delete(c.Contacts, id)
+	if _, exists := store.Contacts[contactId]; exists {
+		delete(store.Contacts, contactId)
 		w.WriteHeader(http.StatusOK)
 	} else {
 		http.Error(w, "Contact not found", http.StatusNotFound)
 	}
-
 }
 
-func handleGetContacts(w http.ResponseWriter, r *http.Request, service *ContactStore) {
-	q := r.URL.Query()
+func handleGetRequest(w http.ResponseWriter, r *http.Request, store *ContactStore) {
+	queryParams := r.URL.Query()
 
-	if q.Get("id") != "" {
-		id, _ := strconv.Atoi(q.Get("id"))
-		service.Find(w, r, id)
+	if idParam := queryParams.Get("id"); idParam != "" {
+		contactId, _ := strconv.Atoi(idParam)
+		store.FindContactById(w, r, contactId)
 	} else {
-		service.List(w, r)
-	}
-
-}
-
-func handlePostContact(w http.ResponseWriter, r *http.Request, service *ContactStore) {
-	service.Create(w, r)
-}
-
-func handlePutContact(w http.ResponseWriter, r *http.Request, service *ContactStore) {
-	q := r.URL.Query()
-
-	if q.Get("id") != "" {
-		id, _ := strconv.Atoi(q.Get("id"))
-		service.Update(w, r, id)
-	} else {
-		http.Error(w, "Contact not found", http.StatusNotFound)
+		store.ListContacts(w, r)
 	}
 }
 
-func handleDeleteContact(w http.ResponseWriter, r *http.Request, service *ContactStore) {
-	q := r.URL.Query()
+func handlePostRequest(w http.ResponseWriter, r *http.Request, store *ContactStore) {
+	store.CreateContact(w, r)
+}
 
-	if q.Get("id") != "" {
-		id, _ := strconv.Atoi(q.Get("id"))
-		service.Delete(w, r, id)
+func handlePutRequest(w http.ResponseWriter, r *http.Request, store *ContactStore) {
+	queryParams := r.URL.Query()
+
+	if idParam := queryParams.Get("id"); idParam != "" {
+		contactId, _ := strconv.Atoi(idParam)
+		store.UpdateContact(w, r, contactId)
 	} else {
-		http.Error(w, "Contact not found", http.StatusNotFound)
+		http.Error(w, "Contact ID is required", http.StatusBadRequest)
 	}
+}
 
+func handleDeleteRequest(w http.ResponseWriter, r *http.Request, store *ContactStore) {
+	queryParams := r.URL.Query()
+
+	if idParam := queryParams.Get("id"); idParam != "" {
+		contactId, _ := strconv.Atoi(idParam)
+		store.DeleteContact(w, r, contactId)
+	} else {
+		http.Error(w, "Contact ID is required", http.StatusBadRequest)
+	}
 }
 
 func main() {
-
-	service := &ContactStore{Contacts: make(map[int]Contact)}
-
+	contactStore := &ContactStore{Contacts: make(map[int]Contact)}
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/contacts", func(w http.ResponseWriter, r *http.Request) {
-
 		switch r.Method {
 		case http.MethodGet:
-			handleGetContacts(w, r, service)
+			handleGetRequest(w, r, contactStore)
 		case http.MethodPost:
-			handlePostContact(w, r, service)
+			handlePostRequest(w, r, contactStore)
 		case http.MethodPut:
-			handlePutContact(w, r, service)
+			handlePutRequest(w, r, contactStore)
 		case http.MethodDelete:
-			handleDeleteContact(w, r, service)
+			handleDeleteRequest(w, r, contactStore)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
-
 	})
-	log.Println("Server started on http://localhost:8080")
 
+	log.Println("Server running on http://localhost:8080")
 	log.Fatal(http.ListenAndServe(":8080", mux))
-
 }
