@@ -2,10 +2,9 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
-	"html"
 	"log"
 	"net/http"
+	"strconv"
 )
 
 type Contact struct {
@@ -18,6 +17,7 @@ type Contact struct {
 type ContactStore struct {
 	Contacts map[int]Contact
 }
+
 func (c *ContactStore) List(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	var contacts []Contact
@@ -29,6 +29,16 @@ func (c *ContactStore) List(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(contacts)
 
 }
+
+func (c *ContactStore) Find(w http.ResponseWriter, r *http.Request, id int) {
+	w.Header().Set("Content-Type", "application/json")
+
+	if contact, ok := c.Contacts[id]; ok {
+		json.NewEncoder(w).Encode(contact)
+	} else {
+		http.Error(w, "Contact not found", http.StatusNotFound)
+	}
+
 }
 
 func (c *ContactStore) Create(w http.ResponseWriter, r *http.Request) {
@@ -62,6 +72,19 @@ func (c *ContactStore) Create(w http.ResponseWriter, r *http.Request) {
 	log.Println("Contact created:", newContact)
 
 }
+
+func handleGetContacts(w http.ResponseWriter, r *http.Request, service *ContactStore) {
+	q := r.URL.Query()
+
+	if q.Get("id") != "" {
+		id, _ := strconv.Atoi(q.Get("id"))
+		service.Find(w, r, id)
+	} else {
+		service.List(w, r)
+	}
+
+}
+
 func handlePostContact(w http.ResponseWriter, r *http.Request, service *ContactStore) {
 	service.Create(w, r)
 }
@@ -73,12 +96,12 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/contacts", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.URL)
+
 		switch r.Method {
 		case http.MethodGet:
-			fmt.Fprintf(w, "Hello, %q", html.EscapeString(r.URL.Path))
+			handleGetContacts(w, r, service)
 		case http.MethodPost:
-			service.Create(w, r)
+			handlePostContact(w, r, service)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
